@@ -14,15 +14,16 @@ var formatTokens = []struct {
 	goFormat     string
 }{
 	{"DDDD", "Monday"},
-	{"DDD", "_2"},
 	{"DD", "02"},
 	{"D", "2"},
+	{"dddd", "Monday"},
+	{"ddd", "Mon"},
 	{"MMMM", "January"},
 	{"MMM", "Jan"},
 	{"MM", "01"},
 	{"M", "1"},
-	{"YYYY", "2006"},
-	{"YY", "06"},
+	{"yyyy", "2006"},
+	{"yy", "06"},
 	{"hh", "03"},
 	{"H", "15"},
 	{"mm", "04"},
@@ -81,7 +82,7 @@ type Moment2GoConverter struct {
 	m   map[string]string
 }
 
-func NewMoment2GoConverter() *Moment2GoConverter {
+func NewConverter() *Moment2GoConverter {
 	return &Moment2GoConverter{
 		m: make(map[string]string),
 	}
