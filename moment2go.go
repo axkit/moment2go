@@ -24,10 +24,14 @@ var formatTokens = []struct {
 	{"M", "1"},
 	{"yyyy", "2006"},
 	{"yy", "06"},
-	{"hh", "03"},
-	{"H", "15"},
+	{"HH", "15"},
+	{"H", "3"},
+	{"hh", "15"},
+	{"h", "3"},
 	{"mm", "04"},
+	{"m", "4"},
 	{"ss", "05"},
+	{"s", "5"},
 	{"A", "PM"},
 	{"a", "pm"},
 	{"ZZ", "-0700"},
@@ -106,7 +110,9 @@ func (c *Moment2GoConverter) Convert(momentLayout string) string {
 }
 
 func (c *Moment2GoConverter) Format(momentLayout string, t time.Time) string {
+
 	goLayout := c.Convert(momentLayout)
+	fmt.Println("format:", momentLayout, goLayout, t)
 	return t.Format(goLayout)
 }
 
