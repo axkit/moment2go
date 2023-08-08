@@ -112,7 +112,6 @@ func (c *Moment2GoConverter) Convert(momentLayout string) string {
 func (c *Moment2GoConverter) Format(momentLayout string, t time.Time) string {
 
 	goLayout := c.Convert(momentLayout)
-	fmt.Println("format:", momentLayout, goLayout, t)
 	return t.Format(goLayout)
 }
 
