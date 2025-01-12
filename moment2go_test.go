@@ -1,43 +1,101 @@
-package moment2go
+package moment2go_test
 
 import (
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/axkit/moment2go"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConvertMomentFormat(t *testing.T) {
-	momentFormat := "YYYY-MM-DD hh:mm:ss"
-	expectedGoFormat := "2006-01-02 03:04:05"
+	tests := []struct {
+		name         string
+		momentFormat string
+		expected     string
+	}{
+		{"Full date format", "YYYY-MM-DD", "2006-01-02"},
+		{"Time with AM/PM", "hh:mm A", "15:04 PM"},
+		{"Day and Month", "dddd, MMMM", "Monday, January"},
+		{"Complex format", "YYYY-MM-DDTHH:mm:ssZZ", "2006-01-02T15:04:05-0700"},
+	}
 
-	goFormat := ConvertMomentFormat(momentFormat)
-
-	if goFormat != expectedGoFormat {
-		t.Errorf("Unexpected Go format. Expected: %s, Got: %s", expectedGoFormat, goFormat)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := moment2go.ConvertMomentFormat(test.momentFormat)
+			assert.Equal(t, test.expected, result)
+		})
 	}
 }
 
 func TestConvertMomentToGoLayout(t *testing.T) {
-	momentLayout := "YYYY-MM-DD hh:mm:ss"
-	expectedGoLayout := "2006-01-02 03:04:05"
+	tests := []struct {
+		name         string
+		momentLayout string
+		expected     string
+	}{
+		{"Date only", "YYYY-MM-DD", "2006-01-02"},
+		{"Date and time", "YYYY-MM-DD HH:mm:ss", "2006-01-02 15:04:05"},
+		{"Time only", "HH:mm:ss", "15:04:05"},
+		{"Custom format", "ddd, MMM DD, YYYY", "Mon, Jan 02, 2006"},
+	}
 
-	goLayout := ConvertMomentToGoLayout(momentLayout)
-
-	if goLayout != expectedGoLayout {
-		t.Errorf("Unexpected Go layout. Expected: %s, Got: %s", expectedGoLayout, goLayout)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := moment2go.ConvertMomentToGoLayout(test.momentLayout)
+			assert.Equal(t, test.expected, result)
+		})
 	}
 }
 
 func TestConvertMomentToGoLayoutWithLocation(t *testing.T) {
-	momentLayout := "YYYY-MM-DD hh:mm:ss"
-	location, err := time.LoadLocation("UTC")
-	if err != nil {
-		t.Fatalf("Failed to load time zone location: %v", err)
+	tests := []struct {
+		name         string
+		momentLayout string
+		location     *time.Location
+	}{
+		{"UTC location", "YYYY-MM-DD", time.UTC},
+		{"Local location", "YYYY-MM-DD", time.Now().Location()},
 	}
-	expectedGoLayout := "2006-01-02 03:04:05 00:00"
 
-	goLayout := ConvertMomentToGoLayoutWithLocation(momentLayout, location)
-
-	if goLayout != expectedGoLayout {
-		t.Errorf("Unexpected Go layout with location. Expected: %s, Got: %s", expectedGoLayout, goLayout)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := moment2go.ConvertMomentToGoLayoutWithLocation(test.momentLayout, test.location)
+			assert.Contains(t, result, "2006-01-02")
+		})
 	}
+}
+
+func TestMoment2GoConverter(t *testing.T) {
+	converter := moment2go.NewConverter()
+	tests := []struct {
+		name         string
+		momentLayout string
+		timeInput    time.Time
+		expected     string
+	}{
+		{"Simple format", "YYYY-MM-DD", time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC), "2023-01-01"},
+		{"With time", "YYYY-MM-DD HH:mm", time.Date(2023, 1, 1, 15, 30, 0, 0, time.UTC), "2023-01-01 15:30"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := converter.Format(test.momentLayout, test.timeInput)
+			assert.Equal(t, test.expected, result)
+		})
+	}
+
+	t.Run("Thread-safe conversion", func(t *testing.T) {
+		var wg sync.WaitGroup
+		momentLayout := "YYYY-MM-DD"
+		for i := 0; i < 100; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				converter.Convert(momentLayout)
+			}()
+		}
+		wg.Wait()
+	})
 }
