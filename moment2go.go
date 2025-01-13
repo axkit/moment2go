@@ -3,6 +3,7 @@ package moment2go
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -39,67 +40,64 @@ var formatTokens = []struct {
 	{"Z", "-07:00"},
 }
 
+// compileRegexp compiles a regular expression to match Moment.js format tokens.
+// It shall not panic, because the pattern is hardcoded.
+func compileRegexp() *regexp.Regexp {
+
+	var tokenPatterns []string
+	for _, token := range formatTokens {
+		tokenPatterns = append(tokenPatterns, regexp.QuoteMeta(token.momentFormat))
+	}
+	pattern := strings.Join(tokenPatterns, "|")
+
+	return regexp.MustCompile(pattern)
+}
+
 // ConvertMomentFormat converts a Moment.js date and time format to a Go date and time format.
 func ConvertMomentFormat(momentFormat string) string {
 
-	goFormat := momentFormat
-	for i := range formatTokens {
-		goFormat = strings.ReplaceAll(goFormat, formatTokens[i].momentFormat, formatTokens[i].goFormat)
-	}
+	re := compileRegexp()
 
-	return goFormat
-}
-
-// ConvertMomentToGoLayout converts a Moment.js date and time layout to a Go date and time layout.
-func ConvertMomentToGoLayout(momentLayout string) string {
-
-	layoutParts := strings.Split(momentLayout, " ")
-
-	var goLayout string
-	if len(layoutParts) > 1 {
-		// If there are separate date and time parts, convert them separately
-		datePart := layoutParts[0]
-		timePart := layoutParts[1]
-
-		goDateFormat := ConvertMomentFormat(datePart)
-		goTimeFormat := ConvertMomentFormat(timePart)
-
-		goLayout = goDateFormat + " " + goTimeFormat
-	} else {
-		// If there is only one part, convert it as a whole
-		goLayout = ConvertMomentFormat(momentLayout)
-	}
-
-	return goLayout
+	// Replace tokens using regex with context-aware replacement.
+	return re.ReplaceAllStringFunc(momentFormat, func(match string) string {
+		for _, token := range formatTokens {
+			if match == token.momentFormat {
+				return token.goFormat
+			}
+		}
+		return match // Fallback (should not occur).
+	})
 }
 
 // ConvertMomentToGoLayoutWithLocation converts a Moment.js date and time layout to a Go date
 // and time layout with a time zone offset.
 func ConvertMomentToGoLayoutWithLocation(momentLayout string, location *time.Location) string {
-	goLayout := ConvertMomentToGoLayout(momentLayout)
+	goLayout := ConvertMomentFormat(momentLayout)
 
-	// Add the time zone offset to the layout
+	// Add the time zone offset to the layout.
 	_, offset := time.Now().In(location).Zone()
 	goLayout += fmt.Sprintf(" %02d:%02d", offset/3600, (offset%3600)/60)
 
 	return goLayout
 }
 
-// Moment2GoConverter is a thread-safe converter for Moment.js date and time formats to Go date and time formats.
-type Moment2GoConverter struct {
+// Moment2Go is a thread-safe converter for Moment.js date and time formats to Go date and time formats.
+type Moment2Go struct {
+	re  *regexp.Regexp
 	mux sync.RWMutex
 	m   map[string]string
 }
 
-// NewConverter creates a new Moment2GoConverter.
-func NewConverter() *Moment2GoConverter {
-	return &Moment2GoConverter{
-		m: make(map[string]string),
+// New creates a new Moment2GoConverter.
+func New() *Moment2Go {
+	return &Moment2Go{
+		re: compileRegexp(),
+		m:  make(map[string]string),
 	}
 }
 
 // Convert converts a Moment.js date and time format to a Go date and time format.
-func (c *Moment2GoConverter) Convert(momentLayout string) string {
+func (c *Moment2Go) Convert(momentLayout string) string {
 	c.mux.RLock()
 	goLayout, ok := c.m[momentLayout]
 	c.mux.RUnlock()
@@ -107,7 +105,7 @@ func (c *Moment2GoConverter) Convert(momentLayout string) string {
 		return goLayout
 	}
 
-	goLayout = ConvertMomentToGoLayout(momentLayout)
+	goLayout = ConvertMomentFormat(momentLayout)
 
 	c.mux.Lock()
 	c.m[momentLayout] = goLayout
@@ -117,14 +115,8 @@ func (c *Moment2GoConverter) Convert(momentLayout string) string {
 }
 
 // Format formats a time.Time value using a Moment.js date and time format.
-func (c *Moment2GoConverter) Format(momentLayout string, t time.Time) string {
+func (c *Moment2Go) Format(momentLayout string, t time.Time) string {
 
 	goLayout := c.Convert(momentLayout)
 	return t.Format(goLayout)
-}
-
-// Parse parses a Moment.js date and time format and caches the corresponding Go date and time format.
-func (c *Moment2GoConverter) Parse(momentLayout string) {
-	goLayout := c.Convert(momentLayout)
-	c.m[momentLayout] = goLayout
 }

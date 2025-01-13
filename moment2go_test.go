@@ -35,15 +35,15 @@ func TestConvertMomentToGoLayout(t *testing.T) {
 		momentLayout string
 		expected     string
 	}{
+		{"Custom format", "ddd, MMM DD, YYYY", "Mon, Jan 02, 2006"},
 		{"Date only", "YYYY-MM-DD", "2006-01-02"},
 		{"Date and time", "YYYY-MM-DD HH:mm:ss", "2006-01-02 15:04:05"},
 		{"Time only", "HH:mm:ss", "15:04:05"},
-		{"Custom format", "ddd, MMM DD, YYYY", "Mon, Jan 02, 2006"},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := moment2go.ConvertMomentToGoLayout(test.momentLayout)
+			result := moment2go.ConvertMomentFormat(test.momentLayout)
 			assert.Equal(t, test.expected, result)
 		})
 	}
@@ -68,7 +68,7 @@ func TestConvertMomentToGoLayoutWithLocation(t *testing.T) {
 }
 
 func TestMoment2GoConverter(t *testing.T) {
-	converter := moment2go.NewConverter()
+	converter := moment2go.New()
 	tests := []struct {
 		name         string
 		momentLayout string
